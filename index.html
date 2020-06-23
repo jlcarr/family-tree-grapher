@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Family Tree Grapher</h1>
+
+<h2>Description</h2>
+<p>
+This tool will render a GEDCOM file to SVG format.
+</p>
+
+<h2>Inputs</h2>
+<input type="file" id="file-input"/>
+
+<h2>Result</h2>
+<div style="border:1px solid black;width: 100%;height:100%; overflow:scroll;" id="file-image">
+	<embed src="https://upload.wikimedia.org/wikipedia/commons/e/e9/SVG-Grundelemente.svg" type="image/svg+xml">
+</div>
+
+</body>
+
+
+<script>
+function render_family_tree(GEDCOM_string){
+	var SVG_string = GEDCOM2SVG(GEDCOM_string);
+	console.log(SVG_string);
+	var element = document.getElementById('file-image');
+	element.textContent = SVG_string;
+}
+
+function GEDCOM2SVG(GEDCOM_string){
+	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
+	return JSON.stringify(GEDCOM_json);
+}
+
+function GEDCOM2JSON(GEDCOM_string){
+	var return_value = {'children':[]};
+	var obj_stack = [return_value];
+	var lines = GEDCOM_string.split(/\r\n|\r|\n/);
+	for (line of lines){
+		// Parse the line
+		var tokens = line.split(' ');
+		var depth = parseInt(tokens[0]);
+		var tag = tokens[1];
+		
+		// Get the current object (should always pop at least once)
+		while (depth < obj_stack.length) var current_obj = obj_stack.pop();
+		
+		// Check the current object status
+		var new_obj = {'tag': tag, 'children':[]};
+		if (tokens.length > 2) new_obj['value'] = tokens.slice(2).join(' ');
+		current_obj['children'].push(new_obj)
+		
+		// Replace the current object on the stack, with new on top
+		obj_stack.push(current_obj);
+		obj_stack.push(new_obj);
+	}
+	return return_value;
+}
+
+function readSingleFile(e) {
+	var file = e.target.files[0];
+	if (!file) return;
+	
+	var reader = new FileReader();
+	reader.onload = (e) => render_family_tree(e.target.result);
+	reader.readAsText(file);
+}
+
+document.getElementById('file-input')
+	.addEventListener('change', readSingleFile, false);
+</script>
+</html>
+
