@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html>
-<body>
+<head>
+<title>Family Tree Grapher</title>
+<script src="scripts/GEDCOM2SVG.js"></script>
+</head>
 
+
+<body>
 <h1>Family Tree Grapher</h1>
 
 <h2>Description</h2>
@@ -13,251 +18,17 @@ This tool will render a GEDCOM file to SVG format.
 <input type="file" id="file-input"/>
 
 <h2>Result</h2>
-<div style="border:1px solid black;width: 800;height:800; overflow:scroll;" id="file-image">
-	<svg height="800px" width="800px" id='svg-image' style="border:1px solid black">
-	</svg>
-</div>
-
+<div style="border:1px solid black;width: 800;height:800; overflow:scroll;" id="file-image"></div>
 </body>
 
 
 <script>
-function render_family_tree(GEDCOM_string){
-	var SVG_string = GEDCOM2SVG(GEDCOM_string);
-	console.log(SVG_string);
-	var element = document.getElementById('file-image');
-	//element.textContent = SVG_string;
-}
-
-
-function GEDCOM2SVG(GEDCOM_string){
-	// Initial JSON parse of the file
-	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
-	
-	// Clean into family structure
-	var clean_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
-	
-	// Generate descendents tree
-	var descendents_tree = generate_descendents_tree(clean_GEDCOM_json);
-	
-	//Add the actual SVG
-	SVG_descendents_tree(descendents_tree, document.getElementById('svg-image'));
-	
-	return JSON.stringify(descendents_tree);
-}
-
-
-function GEDCOM2JSON(GEDCOM_string){
-	var return_value = {'children':[]};
-	var obj_stack = [return_value];
-	var lines = GEDCOM_string.split(/\r\n|\r|\n/);
-	for (var line of lines){
-		// Parse the line
-		var tokens = line.split(' ');
-		var depth = parseInt(tokens[0]);
-		var tag = tokens[1];
-		
-		// Get the current object (should always pop at least once)
-		while (depth < obj_stack.length) var current_obj = obj_stack.pop();
-		
-		// Check the current object status
-		var new_obj = {'tag': tag, 'children': []};
-		if (tokens.length > 2) new_obj['value'] = tokens.slice(2).join(' ');
-		//console.log(line);
-		current_obj['children'].push(new_obj)
-		
-		// Replace the current object on the stack, with new on top
-		obj_stack.push(current_obj);
-		obj_stack.push(new_obj);
-	}
-	return return_value;
-}
-
-
-function clean_GEDCOM_JSON(GEDCOM_json){
-	// Clean into family structure
-	var INDI_dict = {};
-	var FAM_dict = {};
-	for (var entity of GEDCOM_json['children']){
-		// Individual
-		if ('value' in entity && entity['value'] == 'INDI'){
-			var new_INDI = {'spouse_fam':[]};
-			for (var attribute of entity['children']){
-				if (attribute['tag'] == 'NAME' && 'value' in attribute) new_INDI['name'] = attribute['value'];
-				if (attribute['tag'] == 'SEX' && 'value' in attribute) new_INDI['sex'] = attribute['value'];
-				if (attribute['tag'] == 'FAMS' && 'value' in attribute) new_INDI['spouse_fam'].push(attribute['value']);
-				if (attribute['tag'] == 'FAMC' && 'value' in attribute) new_INDI['child_fam'] = attribute['value'];
-				if (attribute['tag'] == 'BIRT'){
-					for (var attribute_sub of attribute['children']){
-						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_INDI['birthdate'] = attribute_sub['value'];
-					}
-				}
-			}
-			INDI_dict[entity['tag']] = new_INDI;
-		}
-		// Family
-		if ('value' in entity && entity['value'] == 'FAM'){
-			var new_FAM = {'children':[]};
-			for (var attribute of entity['children']){
-				if (attribute['tag'] == 'HUSB' && 'value' in attribute) new_FAM['father'] = attribute['value'];
-				if (attribute['tag'] == 'WIFE' && 'value' in attribute) new_FAM['mother'] = attribute['value'];
-				if (attribute['tag'] == 'CHIL' && 'value' in attribute) new_FAM['children'].push(attribute['value']);
-				if (attribute['tag'] == 'MARR'){
-					for (var attribute_sub of attribute['children']){
-						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_FAM['marriage date'] = attribute_sub['value'];
-					}
-				}
-			}
-			FAM_dict[entity['tag']] = new_FAM;
-		}
-	}
-	clean_GEDCOM_json = {'INDI_dict': INDI_dict, 'FAM_dict':FAM_dict};
-	return clean_GEDCOM_json;
-}
-
-
-function generate_descendents_tree(clean_GEDCOM_json){
-	var INDI_dict = clean_GEDCOM_json.INDI_dict;
-	var FAM_dict = clean_GEDCOM_json.FAM_dict;
-	
-	// Generate descendents tree
-	var descendents_tree = {'key':'@I2@', 'generation': 1}
-	var search_stack = [descendents_tree]; //INDI_dict.keys().filter(indi => !('child_fam' in INDI_dict[indi]));
-	while (search_stack.length){
-		var curr = search_stack.pop();
-		var curr_JSON = INDI_dict[curr['key']]
-		curr['name'] = curr_JSON['name'];
-		curr['birthdate'] = curr_JSON['birthdate'];
-		if (curr_JSON['spouse_fam'].length){
-			var curr_fam = FAM_dict[curr_JSON['spouse_fam'][0]];
-			curr['spouse_key'] = curr_fam['mother'] != curr['key'] ? curr_fam['mother'] : curr_fam['father'];
-			var spouse_JSON = INDI_dict[curr['spouse_key']];
-			curr['spouse'] = spouse_JSON['name']
-			curr['spouse_birthdate'] = spouse_JSON['birthdate']
-			curr['children'] = [];
-			for (var child of curr_fam['children']){
-				var new_child = {'key': child, 'generation': curr['generation']+1};
-				curr['children'].push(new_child);
-				search_stack.push(new_child);
-			}
-		}
-	}
-	return descendents_tree;
-}
-
-
-function descendents_tree_widths(descendents_tree){
-	var self_width = ('spouse' in descendents_tree) ? 2 : 1;
-	if (!('children' in descendents_tree)){
-		descendents_tree['width'] = self_width;
-		return self_width;
-	}
-	const reducer = (total_width, child) => total_width + descendents_tree_widths(child);
-	var children_width = descendents_tree['children'].reduce(reducer, 0);
-	var width = Math.max(self_width, children_width);
-	descendents_tree['width'] = width;
-	return width;
-}
-
-var scale_px = 50;
-
-var individual_box = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-individual_box.setAttribute('rx', 5);
-individual_box.setAttribute('ry', 5);
-individual_box.setAttribute('width', 2*scale_px);
-individual_box.setAttribute('height', scale_px);
-individual_box.setAttribute('stroke', 'black');
-individual_box.setAttribute('fill', 'none');
-var individual_text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-
-function SVG_descendents_tree(descendents_tree, svg_element, offset = 1){
-	var generation = descendents_tree['generation'];
-	if (generation == 1) descendents_tree_widths(descendents_tree);
-	
-	var width = descendents_tree['width'];
-	if (generation == 1) svg_element.setAttribute('width', (4*width+6)*scale_px);
-	
-	var location = Math.floor(width/2) + offset - ('spouse' in descendents_tree ? 1 : 0);
-	
-	add_individual_SVG(svg_element, descendents_tree['name'], location*4*scale_px, generation*2*scale_px);
-	
-	if ('spouse' in descendents_tree){
-		add_individual_SVG(svg_element, descendents_tree['spouse'], (location+1)*4*scale_px, generation*2*scale_px);
-		var spouse_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		spouse_line.setAttribute('x1', (4*location+2)*scale_px);
-		spouse_line.setAttribute('y1', (generation*2+1/2)*scale_px);
-		spouse_line.setAttribute('x2', (location+1)*4*scale_px);
-		spouse_line.setAttribute('y2', (generation*2+1/2)*scale_px);
-		spouse_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(spouse_line);
-	}
-	
-	
-	if ('children' in descendents_tree){
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*location+3)*scale_px);
-		children_line.setAttribute('y1', (generation*2+1/2)*scale_px);
-		children_line.setAttribute('x2', (4*location+3)*scale_px);
-		children_line.setAttribute('y2', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
-	
-		var max_location = location+0.5;
-		var min_location = location+0.5;
-	
-		const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
-		for (var child of descendents_tree['children'].sort(by_birthday)){
-			child_location = SVG_descendents_tree(child, svg_element, offset = offset);
-			console.log(child['key']);
-			offset += child['width'];
-			max_location = Math.max(max_location, child_location);
-			min_location = Math.min(min_location, child_location);
-		}
-		
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*min_location+1)*scale_px);
-		children_line.setAttribute('y1', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('x2', (4*max_location+1)*scale_px);
-		children_line.setAttribute('y2', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
-	}
-	
-	if (generation != 1) {
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*location+1)*scale_px);
-		children_line.setAttribute('y1', (generation*2-1/2)*scale_px);
-		children_line.setAttribute('x2', (4*location+1)*scale_px);
-		children_line.setAttribute('y2', (generation*2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
-	}
-
-	return location;
-}
-
-
-function add_individual_SVG(svg_element, name, x, y){
-	var new_individual = individual_box.cloneNode(true);
-	new_individual.setAttribute('x', x);
-	new_individual.setAttribute('y', y);
-	svg_element.appendChild(new_individual);
-	var new_individual = individual_text.cloneNode(true);
-	new_individual.setAttribute('dominant-baseline', 'middle');
-	new_individual.setAttribute('text-anchor', 'middle');
-	new_individual.setAttribute('x', x + scale_px);
-	new_individual.setAttribute('y', y + scale_px/2);
-	new_individual.innerHTML = name;
-	svg_element.appendChild(new_individual);
-}
-
-
 function readSingleFile(e) {
 	var file = e.target.files[0];
 	if (!file) return;
 	
 	var reader = new FileReader();
-	reader.onload = (e) => render_family_tree(e.target.result);
+	reader.onload = (e) => render_family_tree(e.target.result, document.getElementById('file-image'));
 	reader.readAsText(file);
 }
 
