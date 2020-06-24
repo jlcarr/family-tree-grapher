@@ -33,46 +33,12 @@ function GEDCOM2SVG(GEDCOM_string){
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
 	
 	// Clean into family structure
-	var INDI_dict = {};
-	var FAM_dict = {};
-	for (entity of GEDCOM_json['children']){
-		// Individual
-		if ('value' in entity && entity['value'] == 'INDI'){
-			var new_INDI = {};
-			for (attribute of entity['children']){
-				if (attribute['tag'] == 'NAME' && 'value' in attribute) new_INDI['name'] = attribute['value'];
-				if (attribute['tag'] == 'SEX' && 'value' in attribute) new_INDI['sex'] = attribute['value'];
-				if (attribute['tag'] == 'FAMS' && 'value' in attribute) new_INDI['spouce_fam'] = attribute['value'];
-				if (attribute['tag'] == 'FAMC' && 'value' in attribute) new_INDI['child_fam'] = attribute['value'];
-				if (attribute['tag'] == 'BIRT'){
-					for (attribute_sub of attribute['children']){
-						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_INDI['birthdate'] = attribute_sub['value'];
-					}
-				}
-			}
-			INDI_dict[entity['tag']] = new_INDI;
-		}
-		// Family
-		if ('value' in entity && entity['value'] == 'FAM'){
-			var new_FAM = {'children':[]};
-			for (attribute of entity['children']){
-				if (attribute['tag'] == 'HUSB' && 'value' in attribute) new_FAM['father'] = attribute['value'];
-				if (attribute['tag'] == 'WIFE' && 'value' in attribute) new_FAM['mother'] = attribute['value'];
-				if (attribute['tag'] == 'CHIL' && 'value' in attribute) new_FAM['children'].push(attribute['value']);
-				if (attribute['tag'] == 'MARR'){
-					for (attribute_sub of attribute['children']){
-						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_FAM['marriage date'] = attribute_sub['value'];
-					}
-				}
-			}
-			FAM_dict[entity['tag']] = new_FAM;
-		}
-	}
+	var clean_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
 	
-	// Family tree
+	// Generate descendents tree
+	var descendents_tree = generate_descendents_tree(clean_GEDCOM_json);
 	
-	
-	return JSON.stringify(FAM_dict);
+	return JSON.stringify(descendents_tree);
 }
 
 function GEDCOM2JSON(GEDCOM_string){
@@ -98,6 +64,76 @@ function GEDCOM2JSON(GEDCOM_string){
 		obj_stack.push(new_obj);
 	}
 	return return_value;
+}
+
+function clean_GEDCOM_JSON(GEDCOM_json){
+	// Clean into family structure
+	var INDI_dict = {};
+	var FAM_dict = {};
+	for (entity of GEDCOM_json['children']){
+		// Individual
+		if ('value' in entity && entity['value'] == 'INDI'){
+			var new_INDI = {'spouse_fam':[]};
+			for (attribute of entity['children']){
+				if (attribute['tag'] == 'NAME' && 'value' in attribute) new_INDI['name'] = attribute['value'];
+				if (attribute['tag'] == 'SEX' && 'value' in attribute) new_INDI['sex'] = attribute['value'];
+				if (attribute['tag'] == 'FAMS' && 'value' in attribute) new_INDI['spouse_fam'].push(attribute['value']);
+				if (attribute['tag'] == 'FAMC' && 'value' in attribute) new_INDI['child_fam'] = attribute['value'];
+				if (attribute['tag'] == 'BIRT'){
+					for (attribute_sub of attribute['children']){
+						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_INDI['birthdate'] = attribute_sub['value'];
+					}
+				}
+			}
+			INDI_dict[entity['tag']] = new_INDI;
+		}
+		// Family
+		if ('value' in entity && entity['value'] == 'FAM'){
+			var new_FAM = {'children':[]};
+			for (attribute of entity['children']){
+				if (attribute['tag'] == 'HUSB' && 'value' in attribute) new_FAM['father'] = attribute['value'];
+				if (attribute['tag'] == 'WIFE' && 'value' in attribute) new_FAM['mother'] = attribute['value'];
+				if (attribute['tag'] == 'CHIL' && 'value' in attribute) new_FAM['children'].push(attribute['value']);
+				if (attribute['tag'] == 'MARR'){
+					for (attribute_sub of attribute['children']){
+						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_FAM['marriage date'] = attribute_sub['value'];
+					}
+				}
+			}
+			FAM_dict[entity['tag']] = new_FAM;
+		}
+	}
+	clean_GEDCOM_json = {'INDI_dict': INDI_dict, 'FAM_dict':FAM_dict};
+	return clean_GEDCOM_json;
+}
+
+function generate_descendents_tree(clean_GEDCOM_json){
+	var INDI_dict = clean_GEDCOM_json.INDI_dict;
+	var FAM_dict = clean_GEDCOM_json.FAM_dict;
+	
+	// Generate descendents tree
+	var descendents_tree = {'key':'@I2@', 'generation': 1}
+	var search_stack = [descendents_tree]; //INDI_dict.keys().filter(indi => !('child_fam' in INDI_dict[indi]));
+	while (search_stack.length){
+		var curr = search_stack.pop();
+		var curr_JSON = INDI_dict[curr['key']]
+		curr['name'] = curr_JSON['name'];
+		curr['birthdate'] = curr_JSON['birthdate'];
+		if (curr_JSON['spouse_fam'].length){
+			var curr_fam = FAM_dict[curr_JSON['spouse_fam'][0]];
+			curr['spouse_key'] = curr_fam['mother'] != curr['key'] ? curr_fam['mother'] : curr_fam['father'];
+			var spouse_JSON = INDI_dict[curr['spouse_key']];
+			curr['spouse'] = spouse_JSON['name']
+			curr['spouse_birthdate'] = spouse_JSON['birthdate']
+			curr['children'] = [];
+			for (child of curr_fam['children']){
+				var new_child = {'key': child, 'generation': curr['generation']+1};
+				curr['children'].push(new_child);
+				search_stack.push(new_child);
+			}
+		}
+	}
+	return descendents_tree;
 }
 
 function readSingleFile(e) {
