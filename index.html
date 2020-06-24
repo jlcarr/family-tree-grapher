@@ -28,6 +28,7 @@ function render_family_tree(GEDCOM_string){
 	element.textContent = SVG_string;
 }
 
+
 function GEDCOM2SVG(GEDCOM_string){
 	// Initial JSON parse of the file
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
@@ -38,8 +39,12 @@ function GEDCOM2SVG(GEDCOM_string){
 	// Generate descendents tree
 	var descendents_tree = generate_descendents_tree(clean_GEDCOM_json);
 	
+	// Add descendent tree widths
+	descendents_tree_widths(descendents_tree);
+	
 	return JSON.stringify(descendents_tree);
 }
+
 
 function GEDCOM2JSON(GEDCOM_string){
 	var return_value = {'children':[]};
@@ -65,6 +70,7 @@ function GEDCOM2JSON(GEDCOM_string){
 	}
 	return return_value;
 }
+
 
 function clean_GEDCOM_JSON(GEDCOM_json){
 	// Clean into family structure
@@ -107,6 +113,7 @@ function clean_GEDCOM_JSON(GEDCOM_json){
 	return clean_GEDCOM_json;
 }
 
+
 function generate_descendents_tree(clean_GEDCOM_json){
 	var INDI_dict = clean_GEDCOM_json.INDI_dict;
 	var FAM_dict = clean_GEDCOM_json.FAM_dict;
@@ -136,6 +143,21 @@ function generate_descendents_tree(clean_GEDCOM_json){
 	return descendents_tree;
 }
 
+
+function descendents_tree_widths(descendents_tree){
+	var self_width = ('spouse' in descendents_tree) ? 2 : 1;
+	if (!('children' in descendents_tree)){
+		descendents_tree['width'] = self_width;
+		return self_width;
+	}
+	const reducer = (total_width, child) => total_width + descendents_tree_widths(child);
+	var children_width = descendents_tree['children'].reduce(reducer, 0);
+	var width = self_width > children_width ? self_width : children_width;
+	descendents_tree['width'] = width;
+	return width;
+}
+
+
 function readSingleFile(e) {
 	var file = e.target.files[0];
 	if (!file) return;
@@ -144,6 +166,7 @@ function readSingleFile(e) {
 	reader.onload = (e) => render_family_tree(e.target.result);
 	reader.readAsText(file);
 }
+
 
 document.getElementById('file-input')
 	.addEventListener('change', readSingleFile, false);
