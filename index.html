@@ -29,8 +29,50 @@ function render_family_tree(GEDCOM_string){
 }
 
 function GEDCOM2SVG(GEDCOM_string){
+	// Initial JSON parse of the file
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
-	return JSON.stringify(GEDCOM_json);
+	
+	// Clean into family structure
+	var INDI_dict = {};
+	var FAM_dict = {};
+	for (entity of GEDCOM_json['children']){
+		// Individual
+		if ('value' in entity && entity['value'] == 'INDI'){
+			var new_INDI = {};
+			for (attribute of entity['children']){
+				if (attribute['tag'] == 'NAME' && 'value' in attribute) new_INDI['name'] = attribute['value'];
+				if (attribute['tag'] == 'SEX' && 'value' in attribute) new_INDI['sex'] = attribute['value'];
+				if (attribute['tag'] == 'FAMS' && 'value' in attribute) new_INDI['spouce_fam'] = attribute['value'];
+				if (attribute['tag'] == 'FAMC' && 'value' in attribute) new_INDI['child_fam'] = attribute['value'];
+				if (attribute['tag'] == 'BIRT'){
+					for (attribute_sub of attribute['children']){
+						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_INDI['birthdate'] = attribute_sub['value'];
+					}
+				}
+			}
+			INDI_dict[entity['tag']] = new_INDI;
+		}
+		// Family
+		if ('value' in entity && entity['value'] == 'FAM'){
+			var new_FAM = {'children':[]};
+			for (attribute of entity['children']){
+				if (attribute['tag'] == 'HUSB' && 'value' in attribute) new_FAM['father'] = attribute['value'];
+				if (attribute['tag'] == 'WIFE' && 'value' in attribute) new_FAM['mother'] = attribute['value'];
+				if (attribute['tag'] == 'CHIL' && 'value' in attribute) new_FAM['children'].push(attribute['value']);
+				if (attribute['tag'] == 'MARR'){
+					for (attribute_sub of attribute['children']){
+						if (attribute_sub['tag'] == 'DATE' && 'value' in attribute_sub) new_FAM['marriage date'] = attribute_sub['value'];
+					}
+				}
+			}
+			FAM_dict[entity['tag']] = new_FAM;
+		}
+	}
+	
+	// Family tree
+	
+	
+	return JSON.stringify(FAM_dict);
 }
 
 function GEDCOM2JSON(GEDCOM_string){
@@ -47,7 +89,7 @@ function GEDCOM2JSON(GEDCOM_string){
 		while (depth < obj_stack.length) var current_obj = obj_stack.pop();
 		
 		// Check the current object status
-		var new_obj = {'tag': tag, 'children':[]};
+		var new_obj = {'tag': tag, 'children': []};
 		if (tokens.length > 2) new_obj['value'] = tokens.slice(2).join(' ');
 		current_obj['children'].push(new_obj)
 		
