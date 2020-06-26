@@ -15,7 +15,14 @@ This tool will render a GEDCOM file to SVG format.
 </p>
 
 <h2>Inputs</h2>
+<h3>Select File</h2>
+<button onclick="loadDefault();">Load default</button>
+<br/>or<br/>
 <input type="file" id="file-input"/>
+<h3>Select Greatest Ancestor</h2>
+<div style="border:1px solid black; height:100px; overflow:scroll;">
+	<ul id="ancestor-list"></ul>
+</div>
 
 <h2>Result</h2>
 <div style="border:1px solid black;width: 800;height:800; overflow:scroll;" id="file-image"></div>
@@ -23,12 +30,19 @@ This tool will render a GEDCOM file to SVG format.
 
 
 <script>
+function loadDefault() {
+	fetch('template.GED')
+		.then(response =>
+			render_family_tree(response.text(), document.getElementById('file-image')));
+}
+
+
 function readSingleFile(e) {
 	var file = e.target.files[0];
 	if (!file) return;
 	
 	var reader = new FileReader();
-	reader.onload = (e) => render_family_tree(e.target.result, document.getElementById('file-image'));
+	reader.onload = (e) => get_individuals_list(e.target.result, document.getElementById('ancestor-list'));
 	reader.readAsText(file);
 }
 

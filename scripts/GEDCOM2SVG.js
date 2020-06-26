@@ -1,5 +1,23 @@
 // Functions for parsing GEDCOM files and rendering them to SVG
 
+var scale_px = 50;
+
+function get_individuals_list(GEDCOM_string, list_box){
+	// Initial JSON parse of the file
+	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
+	
+	// Clean into family structure
+	var cleaned_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
+	
+	list_box.innerHTML = '';
+	for (var [key, value] of Object.entries(cleaned_GEDCOM_json['INDI_dict'])){
+		var new_individual = document.createElement('li');
+		new_individual.innerHTML = value['name'];
+		list_box.appendChild(new_individual);
+	}
+}
+
+
 function render_family_tree(GEDCOM_string, SVG_box){
 	var SVG_element = GEDCOM2SVG(GEDCOM_string);
 	SVG_box.innerHTML = '';
@@ -12,10 +30,10 @@ function GEDCOM2SVG(GEDCOM_string){
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
 	
 	// Clean into family structure
-	var clean_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
+	var cleaned_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
 	
 	// Generate descendents tree
-	var descendents_tree = generate_descendents_tree(clean_GEDCOM_json);
+	var descendents_tree = generate_descendents_tree(cleaned_GEDCOM_json);
 	
 	// Create the actual SVG element
 	var SVG_element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -100,7 +118,7 @@ function generate_descendents_tree(clean_GEDCOM_json){
 	var FAM_dict = clean_GEDCOM_json.FAM_dict;
 	
 	// Generate descendents tree
-	var descendents_tree = {'key':'@I2@', 'generation': 1}
+	var descendents_tree = {'key':'@I10@', 'generation': 1}
 	var search_stack = [descendents_tree]; //INDI_dict.keys().filter(indi => !('child_fam' in INDI_dict[indi]));
 	while (search_stack.length){
 		var curr = search_stack.pop();
@@ -139,17 +157,6 @@ function descendents_tree_widths(descendents_tree){
 }
 
 
-var scale_px = 100;
-
-var individual_box = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-individual_box.setAttribute('rx', 5);
-individual_box.setAttribute('ry', 5);
-individual_box.setAttribute('width', 2*scale_px);
-individual_box.setAttribute('height', scale_px);
-individual_box.setAttribute('stroke', 'black');
-individual_box.setAttribute('fill', 'none');
-var individual_text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-
 var max_generation = 1;
 function SVG_descendents_tree(descendents_tree, svg_element, offset = 1){
 	var generation = descendents_tree['generation'];
@@ -180,7 +187,7 @@ function SVG_descendents_tree(descendents_tree, svg_element, offset = 1){
 	}
 	
 	
-	if ('children' in descendents_tree){
+	if ('children' in descendents_tree && descendents_tree['children'].length){
 		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 		children_line.setAttribute('x1', (4*location+3)*scale_px);
 		children_line.setAttribute('y1', (generation*2+1/2)*scale_px);
@@ -222,6 +229,15 @@ function SVG_descendents_tree(descendents_tree, svg_element, offset = 1){
 	return location;
 }
 
+
+var individual_box = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+individual_box.setAttribute('rx', 5);
+individual_box.setAttribute('ry', 5);
+individual_box.setAttribute('width', 2*scale_px);
+individual_box.setAttribute('height', scale_px);
+individual_box.setAttribute('stroke', 'black');
+individual_box.setAttribute('fill', 'none');
+var individual_text = document.createElementNS("http://www.w3.org/2000/svg", "text");
 
 function add_individual_SVG(svg_element, name, x, y){
 	var new_individual = individual_box.cloneNode(true);
