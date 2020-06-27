@@ -1,20 +1,23 @@
 // Functions for parsing GEDCOM files and rendering them to SVG
 
 var scale_px = 50;
+var family_data = {};
 
 function get_individuals_list(GEDCOM_string, list_box){
 	// Initial JSON parse of the file
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
 	
 	// Clean into family structure
-	var cleaned_GEDCOM_json = clean_GEDCOM_JSON(GEDCOM_json);
+	family_data = clean_GEDCOM_JSON(GEDCOM_json);
+	console.log(JSON.stringify(family_data));
 	
 	list_box.innerHTML = '';
-	for (var [key, value] of Object.entries(cleaned_GEDCOM_json['INDI_dict'])){
+	for (var [key, value] of Object.entries(family_data['INDI_dict'])){
 		var new_individual = document.createElement('li');
 		new_individual.innerHTML = value['name'];
 		list_box.appendChild(new_individual);
 	}
+	return family_data;
 }
 
 
@@ -108,17 +111,45 @@ function clean_GEDCOM_JSON(GEDCOM_json){
 			FAM_dict[entity['tag']] = new_FAM;
 		}
 	}
-	clean_GEDCOM_json = {'INDI_dict': INDI_dict, 'FAM_dict':FAM_dict};
-	return clean_GEDCOM_json;
+	cleaned_GEDCOM_json = {'INDI_dict': INDI_dict, 'FAM_dict':FAM_dict};
+	count_descendant_generations(cleaned_GEDCOM_json);
+	return cleaned_GEDCOM_json;
 }
 
 
-function generate_descendents_tree(clean_GEDCOM_json){
-	var INDI_dict = clean_GEDCOM_json.INDI_dict;
-	var FAM_dict = clean_GEDCOM_json.FAM_dict;
+function count_descendant_generations(cleaned_GEDCOM_json, search_set = null, target_key = null){
+	if (!target_key){
+		search_set = new Set(Object.keys(cleaned_GEDCOM_json['INDI_dict']));
+		while (search_set.size > 0){
+			target_key = search_set.values().next().value;
+			count_descendant_generations(cleaned_GEDCOM_json, search_set, target_key);
+		}
+	}
+	else {
+		search_set.delete(target_key);
+		var target = cleaned_GEDCOM_json['INDI_dict'][target_key];
+		target['decendant_generations'] = 0;
+		if (target['spouse_fam'].length){
+			for (var family of target['spouse_fam']){
+				for (var child of cleaned_GEDCOM_json['FAM_dict'][family]['children']){
+					if (search_set.has(child)){
+						count_descendant_generations(cleaned_GEDCOM_json, search_set, child);
+					}
+					child = cleaned_GEDCOM_json['INDI_dict'][child];
+					target['decendant_generations'] = Math.max(target['decendant_generations'], child['decendant_generations']+1);
+				}
+			}
+		}
+	}
+}
+
+
+function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
+	var INDI_dict = cleaned_GEDCOM_json.INDI_dict;
+	var FAM_dict = cleaned_GEDCOM_json.FAM_dict;
 	
 	// Generate descendents tree
-	var descendents_tree = {'key':'@I10@', 'generation': 1}
+	var descendents_tree = {'key': ancestor_key, 'generation': 1}
 	var search_stack = [descendents_tree]; //INDI_dict.keys().filter(indi => !('child_fam' in INDI_dict[indi]));
 	while (search_stack.length){
 		var curr = search_stack.pop();
