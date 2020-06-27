@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Family Tree Grapher</title>
+<link rel="stylesheet" href="styles/style.css">
 <script src="scripts/GEDCOM2SVG.js"></script>
 </head>
 
@@ -20,9 +21,19 @@ This tool will render a GEDCOM file to SVG format.
 <br/>or<br/>
 <input type="file" id="file-input"/>
 <h3>Select Ancestor</h2>
-<div style="border:1px solid black; height:200px; overflow:scroll;">
-	<ul id="ancestor-list"></ul>
-</div>
+
+<table>
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Birthdate</th>
+			<th>Descendant Generations</th>
+			<th>Graph Descendants</th>
+		</tr>
+	</thead>
+	<tbody id="ancestor-list"></tbody>
+</table>
+
 
 <h2>Result</h2>
 <div style="border:1px solid black;width: 800;height:800; overflow:scroll;" id="file-image"></div>

@@ -1,0 +1,25 @@
+table, th, td {
+	border:1px solid black;
+	border-collapse: collapse;
+}
+
+tbody{
+	display:block;
+	overflow-y:scroll;
+	height: 200px;
+	width: 100%;
+}
+
+thead{
+	width: 100%;
+}
+
+thead tr {
+	display: block;
+}
+
+th, td {
+	padding: 5px;
+	text-align: left;
+	width: 200px;
+}

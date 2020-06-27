@@ -3,6 +3,28 @@
 var scale_px = 50;
 var family_data = {};
 
+
+var individual_list_item = document.createElement('tr');
+
+var individual_list_name = document.createElement('td');
+individual_list_name.setAttribute('id','name-cell');
+individual_list_item.appendChild(individual_list_name);
+
+var individual_list_birthdate = document.createElement('td');
+individual_list_birthdate.setAttribute('id','birthdate-cell');
+individual_list_item.appendChild(individual_list_birthdate);
+
+var individual_list_desc = document.createElement('td');
+individual_list_desc.setAttribute('id','descendants-generations-cell');
+individual_list_item.appendChild(individual_list_desc);
+
+var individual_list_select = document.createElement('td');
+individual_list_select.setAttribute('id','select-cell');
+var individual_list_item_button = document.createElement('button');
+individual_list_item_button.textContent = "Select";
+individual_list_select.appendChild(individual_list_item_button);
+individual_list_item.appendChild(individual_list_select);
+
 function get_individuals_list(GEDCOM_string, list_box){
 	// Initial JSON parse of the file
 	var GEDCOM_json = GEDCOM2JSON(GEDCOM_string);
@@ -12,9 +34,21 @@ function get_individuals_list(GEDCOM_string, list_box){
 	console.log(JSON.stringify(family_data));
 	
 	list_box.innerHTML = '';
-	for (var [key, value] of Object.entries(family_data['INDI_dict'])){
-		var new_individual = document.createElement('li');
-		new_individual.innerHTML = value['name'];
+	var INDI_list = Object.entries(family_data['INDI_dict']);
+	INDI_list.sort(
+		function(a,b) {
+			if (a[1]['descendant_generations'] < b[1]['descendant_generations']) return 1;
+			if (a[1]['descendant_generations'] > b[1]['descendant_generations']) return -1;
+			if (new Date(a[1]['birthdate']) > new Date(b[1]['birthdate'])) return 1;
+			if (new Date(a[1]['descendant_generations']) < new Date(b[1]['birthdate'])) return -1;
+			return 0;
+		}
+	);
+	for (var [key, value] of INDI_list){
+		var new_individual = individual_list_item.cloneNode(true);
+		new_individual.querySelector('#name-cell').textContent = value['name'];
+		new_individual.querySelector('#birthdate-cell').textContent = value['birthdate'];
+		new_individual.querySelector('#descendants-generations-cell').textContent = value['descendant_generations'];
 		list_box.appendChild(new_individual);
 	}
 	return family_data;
@@ -128,7 +162,7 @@ function count_descendant_generations(cleaned_GEDCOM_json, search_set = null, ta
 	else {
 		search_set.delete(target_key);
 		var target = cleaned_GEDCOM_json['INDI_dict'][target_key];
-		target['decendant_generations'] = 0;
+		target['descendant_generations'] = 0;
 		if (target['spouse_fam'].length){
 			for (var family of target['spouse_fam']){
 				for (var child of cleaned_GEDCOM_json['FAM_dict'][family]['children']){
@@ -136,7 +170,7 @@ function count_descendant_generations(cleaned_GEDCOM_json, search_set = null, ta
 						count_descendant_generations(cleaned_GEDCOM_json, search_set, child);
 					}
 					child = cleaned_GEDCOM_json['INDI_dict'][child];
-					target['decendant_generations'] = Math.max(target['decendant_generations'], child['decendant_generations']+1);
+					target['descendant_generations'] = Math.max(target['descendant_generations'], child['descendant_generations']+1);
 				}
 			}
 		}
