@@ -21,6 +21,7 @@ individual_list_item.appendChild(individual_list_desc);
 var individual_list_select = document.createElement('td');
 individual_list_select.setAttribute('id','select-cell');
 var individual_list_item_button = document.createElement('button');
+individual_list_item_button.setAttribute('id','select-cell-button');
 individual_list_item_button.textContent = "Select";
 individual_list_select.appendChild(individual_list_item_button);
 individual_list_item.appendChild(individual_list_select);
@@ -49,14 +50,23 @@ function get_individuals_list(GEDCOM_string, list_box){
 		new_individual.querySelector('#name-cell').textContent = value['name'];
 		new_individual.querySelector('#birthdate-cell').textContent = value['birthdate'];
 		new_individual.querySelector('#descendants-generations-cell').textContent = value['descendant_generations'];
+		new_individual.querySelector('#select-cell-button').setAttribute('onclick',"render_family_tree('"+key+"', document.getElementById('file-image'))");
 		list_box.appendChild(new_individual);
 	}
 	return family_data;
 }
 
 
-function render_family_tree(GEDCOM_string, SVG_box){
-	var SVG_element = GEDCOM2SVG(GEDCOM_string);
+function render_family_tree(ancestor_key, SVG_box){
+	// Generate descendents tree
+	var descendents_tree = generate_descendents_tree(family_data, ancestor_key);
+
+	// Create the actual SVG element
+	var SVG_element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	SVG_element.setAttribute('border', '1px solid black');
+	SVG_descendents_tree(descendents_tree, SVG_element);
+	
+	// Place on the canvas
 	SVG_box.innerHTML = '';
 	SVG_box.appendChild(SVG_element);
 }
@@ -192,10 +202,14 @@ function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
 		curr['birthdate'] = curr_JSON['birthdate'];
 		if (curr_JSON['spouse_fam'].length){
 			var curr_fam = FAM_dict[curr_JSON['spouse_fam'][0]];
-			curr['spouse_key'] = curr_fam['mother'] != curr['key'] ? curr_fam['mother'] : curr_fam['father'];
-			var spouse_JSON = INDI_dict[curr['spouse_key']];
-			curr['spouse'] = spouse_JSON['name']
-			curr['spouse_birthdate'] = spouse_JSON['birthdate']
+			if ('mother' in curr_fam && curr_fam['mother'] != curr['key']) curr['spouse_key'] = curr_fam['mother'];
+			if ('father' in curr_fam && curr_fam['father'] != curr['key']) curr['spouse_key'] = curr_fam['father'];
+			if ('spouse_key' in curr) var spouse_JSON = INDI_dict[curr['spouse_key']];
+			else var spouse_JSON = {'name':'?', 'birthdate':'?'};
+			
+			curr['spouse'] = spouse_JSON['name'];
+			curr['spouse_birthdate'] = spouse_JSON['birthdate'];
+			
 			curr['children'] = [];
 			for (var child of curr_fam['children']){
 				var new_child = {'key': child, 'generation': curr['generation']+1};
