@@ -1,65 +1,66 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>Family Tree Grapher</title>
-<link rel="stylesheet" href="styles/style.css">
-<script src="scripts/GEDCOM2SVG.js"></script>
-</head>
+	<head>
+		<title>Family Tree Grapher</title>
+		<link rel="stylesheet" href="styles/style.css">
+		<script src="scripts/GEDCOM2SVG.js"></script>
+	</head>
+
+	<body>
+		<h1>Family Tree Grapher</h1>
+
+		<h2>Description</h2>
+		<p>
+			This tool will render a GEDCOM file to SVG format.
+		</p>
+
+		<h2>Inputs</h2>
+		<h3>Select File</h3>
+		<p>
+			Most version of GEDCOM are supported.
+		</p>
+		<button onclick="loadDefault();">Load Default</button>
+		<br/>or<br/>
+		<input type="file" id="file-input"/>
+		<h3>Select Ancestor</h3>
+		<p>
+			This table is sorted primarily by number of descendant generations, secondarily by birthdate.
+		</p>
+		<table>
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Birthdate</th>
+					<th>Descendant Generations</th>
+					<th>Graph Descendants</th>
+				</tr>
+			</thead>
+			<tbody id="ancestor-list"></tbody>
+		</table>
 
 
-<body>
-<h1>Family Tree Grapher</h1>
+		<h2>Result</h2>
+		<div id="file-image"></div>
+	</body>
 
-<h2>Description</h2>
-<p>
-This tool will render a GEDCOM file to SVG format.
-</p>
+	<script>
+		function loadDefault() {
+			fetch('template.GED')
+				.then(response =>
+					render_family_tree(response.text(), document.getElementById('file-image')));
+		}
 
-<h2>Inputs</h2>
-<h3>Select File</h2>
-<button onclick="loadDefault();">Load Default</button>
-<br/>or<br/>
-<input type="file" id="file-input"/>
-<h3>Select Ancestor</h2>
+		function readSingleFile(e) {
+			var file = e.target.files[0];
+			if (!file) return;
+			
+			var reader = new FileReader();
+			reader.onload = (e) => get_individuals_list(e.target.result, document.getElementById('ancestor-list'));
+			reader.readAsText(file);
+		}
 
-<table>
-	<thead>
-		<tr>
-			<th>Name</th>
-			<th>Birthdate</th>
-			<th>Descendant Generations</th>
-			<th>Graph Descendants</th>
-		</tr>
-	</thead>
-	<tbody id="ancestor-list"></tbody>
-</table>
-
-
-<h2>Result</h2>
-<div style="border:1px solid black;width: 800;height:800; overflow:scroll;" id="file-image"></div>
-</body>
-
-
-<script>
-function loadDefault() {
-	fetch('template.GED')
-		.then(response =>
-			render_family_tree(response.text(), document.getElementById('file-image')));
-}
-
-
-function readSingleFile(e) {
-	var file = e.target.files[0];
-	if (!file) return;
-	
-	var reader = new FileReader();
-	reader.onload = (e) => get_individuals_list(e.target.result, document.getElementById('ancestor-list'));
-	reader.readAsText(file);
-}
-
-
-document.getElementById('file-input')
-	.addEventListener('change', readSingleFile, false);
-</script>
+		document.getElementById('file-input')
+			.addEventListener('change', readSingleFile, false);
+	</script>
 </html>
 

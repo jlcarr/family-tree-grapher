@@ -1,0 +1,16 @@
+DEV NOTES
+
+TODO
+-format the name text with wrapping and resizing to fit
+-make space between adjacent individuals smaller
+-lower the image width by condensing kin into open adjacent space
+-add ancestor tree graphing capability
+-add download capability
+-add list sorting features
+-add kinship classifier
+
+
+GENEOLOGY LINKS
+https://en.wikipedia.org/wiki/GEDCOM
+https://www.familysearch.org/developers/docs/guides/gedcom
+https://en.wikipedia.org/wiki/Family_tree

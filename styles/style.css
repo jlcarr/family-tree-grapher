@@ -23,3 +23,10 @@ th, td {
 	text-align: left;
 	width: 200px;
 }
+
+#file-image {
+	border:1px solid black;
+	width: 800;
+	height:800;
+	overflow:scroll;
+}
