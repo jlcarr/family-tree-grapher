@@ -49,7 +49,7 @@
 		function loadDefault() {
 			fetch('template.GED')
 				.then(response =>
-					get_individuals_list(response.text(), ancestor_list_box));
+					get_individuals_list(response.text(), individual_list_box));
 		}
 
 		function readSingleFile(e) {
