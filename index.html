@@ -44,10 +44,12 @@
 	</body>
 
 	<script>
+		var individual_list_box = document.getElementById('ancestor-list');
+		
 		function loadDefault() {
 			fetch('template.GED')
 				.then(response =>
-					render_family_tree(response.text(), document.getElementById('file-image')));
+					get_individuals_list(response.text(), ancestor_list_box));
 		}
 
 		function readSingleFile(e) {
@@ -55,7 +57,7 @@
 			if (!file) return;
 			
 			var reader = new FileReader();
-			reader.onload = (e) => get_individuals_list(e.target.result, document.getElementById('ancestor-list'));
+			reader.onload = (e) => get_individuals_list(e.target.result, individual_list_box);
 			reader.readAsText(file);
 		}
 
