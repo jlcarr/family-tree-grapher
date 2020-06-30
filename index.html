@@ -48,8 +48,9 @@
 		
 		function loadDefault() {
 			fetch('template.GED')
-				.then(response =>
-					get_individuals_list(response.text(), individual_list_box));
+				.then(response => response.text())
+				.then(text =>
+					get_individuals_list(text, individual_list_box));
 		}
 
 		function readSingleFile(e) {
