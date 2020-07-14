@@ -1,5 +1,7 @@
 # family_tree_grapher
-An Javascript project to render a family tree GEDCOM file in SVG with HTML UI
+An Javascript project to render a family tree GEDCOM file in SVG with HTML UI  
+
+See this project in action online: https://jcarr.ca/family-tree-grapher
 
 ## Features
 * Automatic parsing of most version of the GEDCOM file format
@@ -36,6 +38,17 @@ If someone is not a sibling or ancestor (parent, grandparent, great grandparent,
 6. If *NMin*=*NX*=1 then: *X* is *Y*'s great x(*NY*-*NX*-1) aunt/uncle  
 7. If *NMin*=*NY*=1 then: *X* is *Y*'s great x(*NY*-*NX*-1) nephew/niece  
 8. Otherwise: *X* is *Y*'s (*NMin*-1)th counsin (*NMax*-*NMin*) times removed  
+
+### Drawing Trees
+We can use a few simple facts and assumptions about our descendants tree structure to draw their the graph
+- We assume a descendant will have at most 1 significant other with whom they reproduce
+- We assume no incest so as to preserve the tree structure of the descendants tree
+- Given the above, we have a rooted tree structure with a uniquely defined depth to every node
+- Given the above, we may define our drawing space as dicrete rectangular grid in which each cell may contain one person
+- Given the above, we know how much vertical height to allocate for the tree's image: it's simply proprortial to the maximum depth of the tree
+- We may pair horizontally adjacent cells together so as to give space for significant others
+- Given the above, an upper bound for the total horizontal space that needs to be allocated for a given individual the max between their cell plus their significant other's cell's width, and maximum width of a descendant generation from that individual
+- This upper bound may be improved upon by "compacting" the graph layout: imagine the individuals existing on horizontal sliders, and then us pushing inwards on all the individuals at the far left and right edges of our image (We would likely apply the constraint that not child descentdant can be pushed far enough until no member of themselves and their siblings appear directly below their parent).
 
 
 ## Glossary

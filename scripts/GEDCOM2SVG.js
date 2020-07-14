@@ -63,6 +63,8 @@ function render_family_tree(ancestor_key, SVG_box){
 
 	// Create the actual SVG element
 	var SVG_element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
+	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
 	SVG_descendents_tree(descendents_tree, SVG_element);
 	
@@ -84,6 +86,8 @@ function GEDCOM2SVG(GEDCOM_string){
 	
 	// Create the actual SVG element
 	var SVG_element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
+	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
 	SVG_descendents_tree(descendents_tree, SVG_element);
 	
