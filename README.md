@@ -58,3 +58,13 @@ We can use a few simple facts and assumptions about our descendants tree structu
 * **GEDCOM**: GEnealogical Data COMmunication. The defacto standard file format for geneolgical data.
 * **Generation**: A level of descendants in a family.
 * **SVG**: Scalable Vector Graphics. Open standard file format for vector graphics.
+
+
+## Todo
+- Format the name text with wrapping and resizing to fit
+- Make space between adjacent individuals smaller
+- Lower the image width by condensing kin into open adjacent space
+- Add ancestor tree graphing capability
+- Add download capability
+- Add list sorting features
+- Add kinship classifier
