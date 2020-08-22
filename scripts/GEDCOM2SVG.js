@@ -50,7 +50,7 @@ function get_individuals_list(GEDCOM_string, list_box){
 		new_individual.querySelector('#name-cell').textContent = value['name'];
 		new_individual.querySelector('#birthdate-cell').textContent = value['birthdate'];
 		new_individual.querySelector('#descendants-generations-cell').textContent = value['descendant_generations'];
-		new_individual.querySelector('#select-cell-button').setAttribute('onclick',"render_family_tree('"+key+"', document.getElementById('file-image'))");
+		new_individual.querySelector('#select-cell-button').setAttribute('onclick',"render_family_tree('"+key+"', document.getElementById('file-image'));");
 		list_box.appendChild(new_individual);
 	}
 	return family_data;
@@ -66,6 +66,7 @@ function render_family_tree(ancestor_key, SVG_box){
 	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
 	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
+	console.log(JSON.stringify(descendents_tree));
 	SVG_descendents_tree(descendents_tree, SVG_element);
 	
 	// Place on the canvas
@@ -227,6 +228,7 @@ function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
 
 
 function descendents_tree_widths(descendents_tree){
+	if ('width' in descendents_tree) return descendents_tree['width'];
 	var self_width = ('spouse' in descendents_tree) ? 2 : 1;
 	if (!('children' in descendents_tree)){
 		descendents_tree['width'] = self_width;
