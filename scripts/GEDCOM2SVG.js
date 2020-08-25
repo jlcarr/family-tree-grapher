@@ -241,77 +241,141 @@ function descendents_tree_widths(descendents_tree){
 	return width;
 }
 
-
-var max_generation = 1;
-function SVG_descendents_tree(descendents_tree, svg_element, offset = 1){
-	var generation = descendents_tree['generation'];
-	if (generation == 1) descendents_tree_widths(descendents_tree);
-	
-	var width = descendents_tree['width'];
-	if (generation == 1) svg_element.setAttribute('width', (4*width+6)*scale_px);
-	
-	if (generation == 1) max_generation = 0;
-	if (generation > max_generation){
-		max_generation = generation;
-		svg_element.setAttribute('height', (2*max_generation+3)*scale_px);
+function SVG_descendents_tree(descendents_tree, svg_element){
+	const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
+	// Build Initial offsets
+	var stack = [];
+	var offset_list = [];
+	var generation_list = [];
+	stack.push(descendents_tree);
+	while (stack.length > 0){
+		var curr = stack.pop();
+		// Add children to stack
+		if ('children' in curr) stack.push(...curr['children'].sort(by_birthday).reverse());
+		
+		// Update offset values
+		if (offset_list.length < curr['generation']) offset_list.push(0);
+		curr['offset'] = offset_list[curr['generation']-1];
+		offset_list[curr['generation']-1]++;
+		if ('spouse' in curr) offset_list[curr['generation']-1]++;
+		
+		// Add self to generation list
+		if (generation_list.length < curr['generation']) generation_list.push([]);
+		generation_list[curr['generation']-1].push(curr);
 	}
 	
-	var location = Math.floor(width/2) + offset - ('spouse' in descendents_tree ? 1 : 0);
-	
-	add_individual_SVG(svg_element, descendents_tree['name'], location*4*scale_px, generation*2*scale_px);
-	
-	if ('spouse' in descendents_tree){
-		add_individual_SVG(svg_element, descendents_tree['spouse'], (location+1)*4*scale_px, generation*2*scale_px);
-		var spouse_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		spouse_line.setAttribute('x1', (4*location+2)*scale_px);
-		spouse_line.setAttribute('y1', (generation*2+1/2)*scale_px);
-		spouse_line.setAttribute('x2', (location+1)*4*scale_px);
-		spouse_line.setAttribute('y2', (generation*2+1/2)*scale_px);
-		spouse_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(spouse_line);
+	// Satisfy constraints
+	stack.push(descendents_tree);
+	while (stack.length > 0){
+		var curr = stack.pop();
+		// Add children to stack
+		if ('children' in curr && curr['children'].length > 0) stack.push(...curr['children'].sort(by_birthday).reverse());
+		else continue;
+		
+		var sorted_children_list = curr['children'].sort(by_birthday);
+		
+		// Get min-max children positions
+		var min_child = sorted_children_list[0];
+		var min_child_offset = min_child['offset'];
+		if ('spouse' in min_child)
+			if (new Date(min_child['birthdate']) > new Date(min_child['spouse_birthdate'])) min_child_offset++;
+		var max_child = sorted_children_list[sorted_children_list.length-1];
+		var max_child_offset = max_child['offset'];
+		if ('spouse' in max_child)
+			if (new Date(max_child['birthdate']) > new Date(max_child['spouse_birthdate'])) max_child_offset++;
+		if (sorted_children_list.length >= 2) max_child_offset--;
+		
+		// Move all individuals up to children
+		if (curr['offset'] < min_child_offset) {
+			var offset_diff = min_child_offset - curr['offset'];
+			var offset_base = curr['offset'];
+			for (var individual of generation_list[curr['generation']-1])
+				if (individual['offset'] >= offset_base) individual['offset'] += offset_diff;
+		}
+		// Move all children up to individual
+		if (curr['offset'] > max_child_offset) {
+			var offset_diff = curr['offset'] - max_child_offset;
+			var offset_base = min_child['offset'];
+			for (var individual of generation_list[curr['generation']])
+				if (individual['offset'] >= offset_base) individual['offset'] += offset_diff;
+		}
 	}
 	
+	// Fetch min/max values
+	var max_generation = 0;
+	var max_width = 0;
+	stack.push(descendents_tree);
+	while (stack.length > 0){
+		var curr = stack.pop();
+		// Add children to stack
+		if ('children' in curr) stack.push(...curr['children'].sort(by_birthday));
+		
+		max_generation = Math.max(max_generation, curr['generation']);
+		max_width = Math.max(max_width, curr['offset']);
+		if ('spouse' in curr) max_width = Math.max(max_width, 1+curr['offset']);
+	}
 	
-	if ('children' in descendents_tree && descendents_tree['children'].length){
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*location+3)*scale_px);
-		children_line.setAttribute('y1', (generation*2+1/2)*scale_px);
-		children_line.setAttribute('x2', (4*location+3)*scale_px);
-		children_line.setAttribute('y2', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
+	// Draw results
+	svg_element.setAttribute('width', (4*max_width+6)*scale_px);
+	svg_element.setAttribute('height', (2*max_generation+1)*scale_px);
 	
-		var max_location = location+0.5;
-		var min_location = location+0.5;
-	
-		const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
-		for (var child of descendents_tree['children'].sort(by_birthday)){
-			child_location = SVG_descendents_tree(child, svg_element, offset = offset);
-			offset += child['width'];
-			max_location = Math.max(max_location, child_location);
-			min_location = Math.min(min_location, child_location);
+	stack.push(descendents_tree);
+	while (stack.length > 0){
+		var curr = stack.pop();
+		if ('children' in curr) stack.push(...curr['children']);
+		
+		var location = curr['offset'];
+		var generation =  curr['generation'];
+		
+		add_individual_SVG(svg_element, curr['name'], (2*location+1)*2*scale_px, (2*generation-1)*scale_px);
+		if ('spouse' in curr){
+		 	add_individual_SVG(svg_element, curr['spouse'], (2*(location+1)+1)*2*scale_px, (2*generation-1)*scale_px);
+			var spouse_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+			spouse_line.setAttribute('x1', (2*location+2)*2*scale_px);
+			spouse_line.setAttribute('y1', (2*generation-1/2)*scale_px);
+			spouse_line.setAttribute('x2', (2*location+3)*2*scale_px);
+			spouse_line.setAttribute('y2', (2*generation-1/2)*scale_px);
+			spouse_line.setAttribute('stroke', 'black');
+			svg_element.appendChild(spouse_line);
 		}
 		
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*min_location+1)*scale_px);
-		children_line.setAttribute('y1', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('x2', (4*max_location+1)*scale_px);
-		children_line.setAttribute('y2', (generation*2+3/2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
+		if ('children' in curr && curr['children'].length){
+			// Drop line
+			var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+			children_line.setAttribute('x1', (2*location+5/2)*2*scale_px);
+			children_line.setAttribute('y1', (2*generation-1/2)*scale_px);
+			children_line.setAttribute('x2', (2*location+5/2)*2*scale_px);
+			children_line.setAttribute('y2', (2*generation+1/2)*scale_px);
+			children_line.setAttribute('stroke', 'black');
+			svg_element.appendChild(children_line);
+			
+			
+			// Get min-max children positions
+			var sorted_children_list = curr['children'].sort(by_birthday);
+			var min_child_offset = sorted_children_list[0]['offset'];
+			var max_child_offset = sorted_children_list[sorted_children_list.length-1]['offset'];
+			max_child_offset = Math.max(max_child_offset, location+1/2)
+			
+			// Sibling line
+			var sibling_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+			sibling_line.setAttribute('x1', (2*min_child_offset+3/2)*2*scale_px);
+			sibling_line.setAttribute('y1', (2*generation+1/2)*scale_px);
+			sibling_line.setAttribute('x2', (2*max_child_offset+3/2)*2*scale_px);
+			sibling_line.setAttribute('y2', (2*generation+1/2)*scale_px);
+			sibling_line.setAttribute('stroke', 'black');
+			svg_element.appendChild(sibling_line);
+		}
+		
+		if (generation != 1) {
+			var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+			children_line.setAttribute('x1', (2*location+3/2)*2*scale_px);
+			children_line.setAttribute('y1', (2*generation-1)*scale_px);
+			children_line.setAttribute('x2', (2*location+3/2)*2*scale_px);
+			children_line.setAttribute('y2', (2*generation-3/2)*scale_px);
+			children_line.setAttribute('stroke', 'black');
+			svg_element.appendChild(children_line);
+		}
 	}
-	
-	if (generation != 1) {
-		var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-		children_line.setAttribute('x1', (4*location+1)*scale_px);
-		children_line.setAttribute('y1', (generation*2-1/2)*scale_px);
-		children_line.setAttribute('x2', (4*location+1)*scale_px);
-		children_line.setAttribute('y2', (generation*2)*scale_px);
-		children_line.setAttribute('stroke', 'black');
-		svg_element.appendChild(children_line);
-	}
-
-	return location;
 }
 
 
