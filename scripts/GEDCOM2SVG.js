@@ -265,17 +265,10 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 		
 		// Calculate minimal offset allowed
 		var min_offset = offset_list[curr['generation']-1];
-		var slack = 0;
 		var offsetter = curr;
 		while ('children' in offsetter && offsetter['children'].length > 0){
-			min_offset = Math.max(min_offset, offset_list[offsetter['generation']]-slack);
-			var child;
-			for (child of offsetter['children'].sort(by_birthday)){
-				if ('children' in child && child['children'].length > 0) break;
-				slack++;
-				if ('spouse' in child) slack++;
-			}
-			offsetter = child;
+			min_offset = Math.max(min_offset, offset_list[offsetter['generation']]);
+			offsetter = offsetter['children'].sort(by_birthday)[0];
 			console.log(offsetter['name']);
 		}
 		
@@ -284,7 +277,6 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 		if ('spouse' in curr) offset_list[curr['generation']-1]++;
 	}
 	// Close: Init so is max between gen-offset and indiv under parent
-	// Only first-borns matter for indiv placement
 	
 	// Fetch max width
 	var max_width = Math.max(...offset_list);
