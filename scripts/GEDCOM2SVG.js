@@ -242,10 +242,20 @@ function descendents_tree_widths(descendents_tree){
 }
 
 function SVG_descendents_tree(descendents_tree, svg_element){
+	// Fetch max generation
+	var max_generation = 0;
+	var stack = [];
+	stack.push(descendents_tree);
+	while (stack.length > 0){
+		var curr = stack.pop();
+		if ('children' in curr) stack.push(...curr['children']);
+		max_generation = Math.max(max_generation, curr['generation']);
+	}
+
 	const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
 	// Build Initial offsets
 	var stack = [];
-	var offset_list = [];
+	var offset_list = new Array(max_generation).fill(0);
 	var generation_list = [];
 	stack.push(descendents_tree);
 	while (stack.length > 0){
@@ -253,67 +263,31 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 		// Add children to stack
 		if ('children' in curr) stack.push(...curr['children'].sort(by_birthday).reverse());
 		
-		// Update offset values
-		if (offset_list.length < curr['generation']) offset_list.push(0);
-		curr['offset'] = offset_list[curr['generation']-1];
-		offset_list[curr['generation']-1]++;
+		// Calculate minimal offset allowed
+		var min_offset = offset_list[curr['generation']-1];
+		var slack = 0;
+		var offsetter = curr;
+		while ('children' in offsetter && offsetter['children'].length > 0){
+			min_offset = Math.max(min_offset, offset_list[offsetter['generation']]-slack);
+			var child;
+			for (child of offsetter['children'].sort(by_birthday)){
+				if ('children' in child && child['children'].length > 0) break;
+				slack++;
+				if ('spouse' in child) slack++;
+			}
+			offsetter = child;
+			console.log(offsetter['name']);
+		}
+		
+		curr['offset'] = min_offset;
+		offset_list[curr['generation']-1] = min_offset+1;
 		if ('spouse' in curr) offset_list[curr['generation']-1]++;
-		
-		// Add self to generation list
-		if (generation_list.length < curr['generation']) generation_list.push([]);
-		generation_list[curr['generation']-1].push(curr);
 	}
+	// Close: Init so is max between gen-offset and indiv under parent
+	// Only first-borns matter for indiv placement
 	
-	// Satisfy constraints
-	stack.push(descendents_tree);
-	while (stack.length > 0){
-		var curr = stack.pop();
-		// Add children to stack
-		if ('children' in curr && curr['children'].length > 0) stack.push(...curr['children'].sort(by_birthday).reverse());
-		else continue;
-		
-		var sorted_children_list = curr['children'].sort(by_birthday);
-		
-		// Get min-max children positions
-		var min_child = sorted_children_list[0];
-		var min_child_offset = min_child['offset'];
-		if ('spouse' in min_child)
-			if (new Date(min_child['birthdate']) > new Date(min_child['spouse_birthdate'])) min_child_offset++;
-		var max_child = sorted_children_list[sorted_children_list.length-1];
-		var max_child_offset = max_child['offset'];
-		if ('spouse' in max_child)
-			if (new Date(max_child['birthdate']) > new Date(max_child['spouse_birthdate'])) max_child_offset++;
-		if (sorted_children_list.length >= 2) max_child_offset--;
-		
-		// Move all individuals up to children
-		if (curr['offset'] < min_child_offset) {
-			var offset_diff = min_child_offset - curr['offset'];
-			var offset_base = curr['offset'];
-			for (var individual of generation_list[curr['generation']-1])
-				if (individual['offset'] >= offset_base) individual['offset'] += offset_diff;
-		}
-		// Move all children up to individual
-		if (curr['offset'] > max_child_offset) {
-			var offset_diff = curr['offset'] - max_child_offset;
-			var offset_base = min_child['offset'];
-			for (var individual of generation_list[curr['generation']])
-				if (individual['offset'] >= offset_base) individual['offset'] += offset_diff;
-		}
-	}
-	
-	// Fetch min/max values
-	var max_generation = 0;
-	var max_width = 0;
-	stack.push(descendents_tree);
-	while (stack.length > 0){
-		var curr = stack.pop();
-		// Add children to stack
-		if ('children' in curr) stack.push(...curr['children'].sort(by_birthday));
-		
-		max_generation = Math.max(max_generation, curr['generation']);
-		max_width = Math.max(max_width, curr['offset']);
-		if ('spouse' in curr) max_width = Math.max(max_width, 1+curr['offset']);
-	}
+	// Fetch max width
+	var max_width = Math.max(...offset_list);
 	
 	// Draw results
 	svg_element.setAttribute('width', (4*max_width+6)*scale_px);
