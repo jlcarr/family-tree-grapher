@@ -40,6 +40,7 @@ If someone is not a sibling or ancestor (parent, grandparent, great grandparent,
 8. Otherwise: *X* is *Y*'s (*NMin*-1)th counsin (*NMax*-*NMin*) times removed  
 
 ### Drawing Trees
+- http://www.dgp.toronto.edu/~mjmcguff/research/genealogyVis/genealogyVis.pdf
 We can use a few simple facts and assumptions about our descendants tree structure to draw their the graph
 - We assume a descendant will have at most 1 significant other with whom they reproduce
 - We assume no incest so as to preserve the tree structure of the descendants tree
