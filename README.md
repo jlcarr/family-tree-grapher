@@ -39,8 +39,9 @@ If someone is not a sibling or ancestor (parent, grandparent, great grandparent,
 7. If *NMin*=*NY*=1 then: *X* is *Y*'s great x(*NY*-*NX*-1) nephew/niece  
 8. Otherwise: *X* is *Y*'s (*NMin*-1)th counsin (*NMax*-*NMin*) times removed  
 
-### Drawing Trees
+## Drawing Trees
 - http://www.dgp.toronto.edu/~mjmcguff/research/genealogyVis/genealogyVis.pdf
+### First Draft
 We can use a few simple facts and assumptions about our descendants tree structure to draw their the graph
 - We assume a descendant will have at most 1 significant other with whom they reproduce
 - We assume no incest so as to preserve the tree structure of the descendants tree
@@ -51,6 +52,32 @@ We can use a few simple facts and assumptions about our descendants tree structu
 - Given the above, an upper bound for the total horizontal space that needs to be allocated for a given individual the max between their cell plus their significant other's cell's width, and maximum width of a descendant generation from that individual
 - This upper bound may be improved upon by "compacting" the graph layout: imagine the individuals existing on horizontal sliders, and then us pushing inwards on all the individuals at the far left and right edges of our image (We would likely apply the constraint that not child descentdant can be pushed far enough until no member of themselves and their siblings appear directly below their parent).
 
+### Second Draft: Condensing The Graph
+- Draw the graph with an in-place order DFS approach
+- Try to place elements as far left as possible, but oldest descendant must also be able to be placed
+- Also ensure the youngest child will be directly below the parents or older (help constrain future cousins)
+- This results in an optimally compact graph in terms of total width, but siblings are not always optimally compact
+- Next slide in children (checking youngest descendants slack) to help compact, but still isn't optimal when parent isn't optimally placed
+
+### A Proper Algorithm: The Reingold-Tilford Algorithm
+- https://rachel53461.wordpress.com/2014/04/20/algorithm-for-drawing-trees/
+- https://www.drdobbs.com/positioning-nodes-for-general-trees/184402320?pgno=4
+
+### As A Quadratic Programming Algorithm
+- https://en.wikipedia.org/wiki/Quadratic_programming
+- https://en.wikipedia.org/wiki/Penalty_method
+- https://www.math.uh.edu/~rohop/fall_06/Chapter4.pdf
+- Optimal layout of the tree can be formulated as QP problem
+- Inequality constraints are to keep sequential cousins/siblings in order
+- Inequality constraints also to keep youngest and oldest children to the right and left of parents respectively
+- Objective function has is linear in distances between oldest and youngest siblings respectively
+- Objective function is quadratic in position between parents and oldest and youngest children (optimal in center)
+- Objective function coefficients are chosing to prioritize linear widths over quadratic cenrtering
+- How to solve this quadratic programming problem?
+   - SLSQP
+   - COBYLA
+   - SQP
+   - Penalty method: inequality <i>c</i><sub>i</sub>(<i>x</i>) &leq; 0 into <i>L</i> + step(<i>x</i>) <i>x</i><sup>2</sup>
 
 ## Glossary
 * **Ancestor**: One from whom a person is descended.
