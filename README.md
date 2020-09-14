@@ -62,6 +62,15 @@ We can use a few simple facts and assumptions about our descendants tree structu
 ### A Proper Algorithm: The Reingold-Tilford Algorithm
 - https://rachel53461.wordpress.com/2014/04/20/algorithm-for-drawing-trees/
 - https://www.drdobbs.com/positioning-nodes-for-general-trees/184402320?pgno=4
+- https://en.wikipedia.org/wiki/Tree_traversal
+- This algorithm uses post-order tree traversal along with the concept of tree contours to draw trees that are aesthetically pleasing and close to optimally dense
+- This algorithm optimizes the following:
+   - There is a minimum spacing between nodes of the same generation
+   - Parents must be centered above their children
+   - There should be as little whitespace as possible
+- It also has these nice properties
+   - Subtrees should be draw the same way regardless of where they occur
+   - Mirrored trees structures produce mirrored drawings
 
 ### As A Quadratic Programming Algorithm
 - https://en.wikipedia.org/wiki/Quadratic_programming
@@ -91,7 +100,6 @@ We can use a few simple facts and assumptions about our descendants tree structu
 ## Todo
 - Format the name text with wrapping and resizing to fit
 - Make space between adjacent individuals smaller
-- Lower the image width by condensing kin into open adjacent space
 - Add ancestor tree graphing capability
 - Add download capability
 - Add list sorting features

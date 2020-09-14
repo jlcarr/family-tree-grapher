@@ -32,7 +32,7 @@ function get_individuals_list(GEDCOM_string, list_box){
 	
 	// Clean into family structure
 	family_data = clean_GEDCOM_JSON(GEDCOM_json);
-	console.log(JSON.stringify(family_data));
+	//console.log(JSON.stringify(family_data));
 	
 	list_box.innerHTML = '';
 	var INDI_list = Object.entries(family_data['INDI_dict']);
@@ -66,7 +66,6 @@ function render_family_tree(ancestor_key, SVG_box){
 	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
 	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
-	console.log(JSON.stringify(descendents_tree));
 	SVG_descendents_tree(descendents_tree, SVG_element);
 	
 	// Place on the canvas
@@ -112,7 +111,6 @@ function GEDCOM2JSON(GEDCOM_string){
 		// Check the current object status
 		var new_obj = {'tag': tag, 'children': []};
 		if (tokens.length > 2) new_obj['value'] = tokens.slice(2).join(' ');
-		//console.log(line);
 		current_obj['children'].push(new_obj)
 		
 		// Replace the current object on the stack, with new on top
@@ -223,6 +221,17 @@ function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
 			}
 		}
 	}
+	// Sort children by birthday
+	const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
+	var search_stack = [descendents_tree];
+	while (search_stack.length){
+		var curr = search_stack.pop();
+		if ('children' in curr){
+			curr['children'] = curr['children'].sort(by_birthday);
+			search_stack.push(...curr['children']);
+		}
+	}
+	
 	return descendents_tree;
 }
 
@@ -243,17 +252,13 @@ function descendents_tree_widths(descendents_tree){
 
 function SVG_descendents_tree(descendents_tree, svg_element){
 	// Fetch max generation and generation list, fix children ordering
-	const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
 	var generation_list = [];
 	var stack = [];
 	stack.push(descendents_tree);
 	while (stack.length > 0){
 		var curr = stack.pop();
-		// Add children to search stack
-		if ('children' in curr){
-			var sorted_children = curr['children'].sort(by_birthday);
-			stack.push(...sorted_children.reverse());
-		}
+		if ('children' in curr) stack.push(...curr['children'].slice().reverse());
+
 		// Add the next generation if needed
 		if (generation_list.length < curr['generation']) generation_list.push([]);
 		else {  // Otherwise update the next and prev cousins
@@ -267,76 +272,17 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 	}
 	var max_generation = generation_list.length;
 	
-	const by_offset = (a,b) => a['offset'] > b['offset']? 1 : -1;
-	// Build Initial offsets
-	var stack = [];
-	var offset_list = new Array(max_generation).fill(0);
-	stack.push(descendents_tree);
-	while (stack.length > 0){
-		var curr = stack.pop();
-		// Add children to stack using once-defined offset
-		if ('children' in curr){
-			var sorted_children = curr['children'].sort(by_offset);
-			stack.push(...sorted_children.reverse());
-		}
-		
-		// Calculate minimal offset allowed
-		// Initial offset value
-		var min_offset = offset_list[curr['generation']-1];
-		//if ('spouse' in curr && new Date(curr['spouse_birthdate']) > new Date(curr['birthdate'])) curr['offset']--;
-		min_offset = Math.max(min_offset, curr['offset']);
-		// Min offset must leave room for the oldest descendant in its generation
-		var offsetter = curr;
-		while ('children' in offsetter && offsetter['children'].length > 0){
-			min_offset = Math.max(min_offset, offset_list[offsetter['generation']]);
-			offsetter = offsetter['children'].sort(by_offset)[0];
-		}
-		
-		// May now set its own offset
-		curr['offset'] = min_offset;
-		offset_list[curr['generation']-1] = min_offset+1 + ('spouse' in curr | 0);
-		
-		// Ensure the youngest child will be directly underneath
-		if ('children' in curr && curr['children'].length > 0){
-			var youngest = sorted_children.reverse()[0];
-			youngest['offset'] = curr['offset'] + (curr['children'].length > 1 | 0);
-		}
-	}
+	// First pass offsets
+	first_pass_RT_algorithms(descendents_tree);
 	
-	// Fetch max width
-	var max_width = Math.max(...offset_list) -1;
+	// Second pass to prevent negative values
+	var min_position = Math.min(0,...left_contour(descendents_tree,0));
+	console.log(min_position);
 	
-	// Slide children right
-	for (var gen of generation_list){
-		for (var curr of gen){
-			if (!('children' in curr && curr['children'].length >= 2)) continue;
-			// Slide each of the children
-			for (var i_child=1; i_child < curr['children'].length; i_child++){
-				// Find the slack of the child and their descendants
-				var slide_child = curr['children'].sort(by_offset).reverse()[i_child];
-				var offsetter = slide_child;
-				var next_offset = ('next_cousin' in offsetter) ? offsetter['next_cousin']['offset'] : max_width;
-				var slack = curr['offset'] - offsetter['offset'];
-				slack = Math.min(slack, next_offset - offsetter['offset'] - 1 - ('spouse' in offsetter | 0));
-				while (slack > 0 && 'children' in offsetter && offsetter['children'].length > 0){
-					offsetter = offsetter['children'].sort(by_offset).reverse()[0];
-					next_offset = ('next_cousin' in offsetter) ? offsetter['next_cousin']['offset'] : max_width;
-					slack = Math.min(slack, next_offset - offsetter['offset'] - 1 - ('spouse' in offsetter | 0));
-				}
-				if (slack < 1) continue;
-
-				// Perform the side on the child and their descendants
-				var stack = [];
-				stack.push(slide_child);
-				while (stack.length > 0){
-					var slide_curr = stack.pop();
-					// Add children to search stack (order doesn't matter)
-					if ('children' in slide_curr) stack.push(...slide_curr['children']);
-					slide_curr['offset'] += slack;
-				}
-			}
-		}
-	}	
+	// Third pass offsets
+	third_pass_RT_algorithms(descendents_tree, -min_position);
+	console.log(descendents_tree);
+	var max_width = Math.max.apply(null,generation_list.map(row => Math.max.apply(null,row.map(indiv => indiv['offset']))));
 	
 	// Draw results
 	svg_element.setAttribute('width', (4*max_width+6)*scale_px);
@@ -351,7 +297,7 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 		var generation =  curr['generation'];
 		
 		add_individual_SVG(svg_element, curr['name'], (2*location+1)*2*scale_px, (2*generation-1)*scale_px);
-		if ('spouse' in curr){
+		/*if ('spouse' in curr){
 		 	add_individual_SVG(svg_element, curr['spouse'], (2*(location+1)+1)*2*scale_px, (2*generation-1)*scale_px);
 			var spouse_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 			spouse_line.setAttribute('x1', (2*location+2)*2*scale_px);
@@ -360,25 +306,24 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 			spouse_line.setAttribute('y2', (2*generation-1/2)*scale_px);
 			spouse_line.setAttribute('stroke', 'black');
 			svg_element.appendChild(spouse_line);
-		}
+		}*/
 		
 		if ('children' in curr && curr['children'].length){
 			// Drop line
 			var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-			children_line.setAttribute('x1', (2*location+5/2)*2*scale_px);
-			children_line.setAttribute('y1', (2*generation-1/2)*scale_px);
-			children_line.setAttribute('x2', (2*location+5/2)*2*scale_px);
+			children_line.setAttribute('x1', (2*location+3/2)*2*scale_px);
+			children_line.setAttribute('y1', (2*generation-0/2)*scale_px);
+			children_line.setAttribute('x2', (2*location+3/2)*2*scale_px);
 			children_line.setAttribute('y2', (2*generation+1/2)*scale_px);
 			children_line.setAttribute('stroke', 'black');
 			svg_element.appendChild(children_line);
 			
 			
 			// Get min-max children positions
-			var sorted_children_list = curr['children'].sort(by_offset);
-			var min_child_offset = sorted_children_list[0]['offset'];
-			var max_child_offset = sorted_children_list[sorted_children_list.length-1]['offset'];
-			max_child_offset = Math.max(max_child_offset, location+1/2);
-			min_child_offset = Math.min(min_child_offset, location+1/2);
+			var min_child_offset = curr['children'][0]['offset'];
+			var max_child_offset = curr['children'][curr['children'].length-1]['offset'];
+			//max_child_offset = Math.max(max_child_offset, location+1/2);
+			//min_child_offset = Math.min(min_child_offset, location+1/2);
 			
 			// Sibling line
 			var sibling_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -400,6 +345,111 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 			svg_element.appendChild(children_line);
 		}
 	}
+}
+
+
+function first_pass_RT_algorithms(curr){
+	// Post-order traversal
+	if (curr['children'] && curr['children'].length>0){
+		for (var i=0; i<curr['children'].length; i++){
+			if (i>0) curr['children'][i]['mod'] = 0;
+			curr['children'][i]['offset'] = i;
+			first_pass_RT_algorithms(curr['children'][i]);
+		}
+		var children_mid = (curr['children'][0]['offset'] + curr['children'][curr['children'].length-1]['offset'])/2;
+		if ('mod' in curr) curr['mod'] = curr['offset'] - children_mid;
+		else curr['offset'] = children_mid;
+	}
+	
+	// Resolve conflicts
+	// Get leftmost Sib
+	if (!('mod' in curr)) return;
+	var sib_dist = 0;
+	var sib = curr;
+	while('mod' in sib){
+		sib_dist++;
+		sib = sib['prev_cousin'];
+	}
+	// Loop over younger sibs
+	while (sib != curr){
+		// Generate contours
+		var curr_left_contour = left_contour(curr, 0);
+		var sib_right_contour = right_contour(sib, 0);
+		console.log(curr['name']);
+		console.log(sib['name']);
+		//console.log(curr_left_contour);
+		//console.log(sib_right_contour);
+		
+		var max_conflict = -1;
+		for (var i=0; i<Math.min(curr_left_contour.length,sib_right_contour.length); i++)
+			max_conflict = Math.max(max_conflict, sib_right_contour[i]-curr_left_contour[i]);
+		var shift = Math.max(0,max_conflict+1);
+		//console.log(shift);
+		console.log(sib_dist);
+		curr['offset'] += shift;
+		curr['mod'] += shift;
+		//console.log(curr['offset']);
+		//console.log(sib['offset']);
+		// Re-align inner siblings
+		if (shift>0 && false){
+			var shift_sib = sib['next_cousin'];
+			var inner_sib_count = 1;
+			var realignment = (curr['offset'] - sib['offset'])/sib_dist;
+			while(shift_sib != curr){
+				console.log(realignment);
+				console.log('shiftsib');
+				//console.log(shift_sib['name']);
+				var alignment = inner_sib_count*realignment + sib['offset'];
+				shift_sib['mod'] += alignment - curr['offset'];
+				shift_sib['offset'] = alignment;
+				
+				shift_sib = shift_sib['next_cousin'];
+				inner_sib_count++;
+			}
+		}
+		sib_dist--;
+		sib = sib['next_cousin'];
+	}
+}
+
+
+function left_contour(curr, modSum){
+	var result = [];
+	if ('children' in curr){
+		for (var child of curr['children']){
+			var temp = left_contour(child, modSum + (('mod' in curr)?curr['mod']:0));
+			for (var i=0; i < temp.length; i++){
+				if (result.length <= i) result.push(temp[i]);
+				result[i] = Math.min(result[i],temp[i]);
+			}
+		}
+	}
+	result.unshift(curr['offset']+modSum);
+	return result;
+}
+
+
+function right_contour(curr, modSum){
+	var result = [];
+	if ('children' in curr){
+		for (var child of curr['children']){
+			var temp = right_contour(child, modSum + (('mod' in curr)?curr['mod']:0));
+			for (var i=0; i < temp.length; i++){
+				if (result.length <= i) result.push(temp[i]);
+				result[i] = Math.max(result[i],temp[i]);
+			}
+		}
+	}
+	result.unshift(curr['offset']+modSum);
+	return result;
+}
+
+
+function third_pass_RT_algorithms(curr, modSum){
+	curr['offset'] += modSum
+	if ('children' in curr)
+		for (var child of curr['children'])
+			third_pass_RT_algorithms(child, modSum + (('mod' in curr)?curr['mod']:0));
 }
 
 
