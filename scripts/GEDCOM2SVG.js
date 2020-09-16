@@ -19,12 +19,20 @@ individual_list_desc.setAttribute('id','descendants-generations-cell');
 individual_list_item.appendChild(individual_list_desc);
 
 var individual_list_select = document.createElement('td');
-individual_list_select.setAttribute('id','select-cell');
+individual_list_select.setAttribute('id','select-descendants-cell');
 var individual_list_item_button = document.createElement('button');
-individual_list_item_button.setAttribute('id','select-cell-button');
+individual_list_item_button.setAttribute('id','select-descendants-cell-button');
 individual_list_item_button.textContent = "Select";
 individual_list_select.appendChild(individual_list_item_button);
 individual_list_item.appendChild(individual_list_select);
+
+var individual_list_select_ancestors = document.createElement('td');
+individual_list_select_ancestors.setAttribute('id','select-ancestors-cell');
+var individual_list_item_button_ancestors = document.createElement('button');
+individual_list_item_button_ancestors.setAttribute('id','select-ancestors-cell-button');
+individual_list_item_button_ancestors.textContent = "Select";
+individual_list_select_ancestors.appendChild(individual_list_item_button_ancestors);
+individual_list_item.appendChild(individual_list_select_ancestors);
 
 function get_individuals_list(GEDCOM_string, list_box){
 	// Initial JSON parse of the file
@@ -50,14 +58,15 @@ function get_individuals_list(GEDCOM_string, list_box){
 		new_individual.querySelector('#name-cell').textContent = value['name'];
 		new_individual.querySelector('#birthdate-cell').textContent = value['birthdate'];
 		new_individual.querySelector('#descendants-generations-cell').textContent = value['descendant_generations'];
-		new_individual.querySelector('#select-cell-button').setAttribute('onclick',"render_family_tree('"+key+"', document.getElementById('file-image'));");
+		new_individual.querySelector('#select-descendants-cell-button').setAttribute('onclick',"render_descendants_tree('"+key+"', document.getElementById('file-image'));");
+		new_individual.querySelector('#select-ancestors-cell-button').setAttribute('onclick',"render_ancestor_tree('"+key+"', document.getElementById('file-image'));");
 		list_box.appendChild(new_individual);
 	}
 	return family_data;
 }
 
 
-function render_family_tree(ancestor_key, SVG_box){
+function render_descendants_tree(ancestor_key, SVG_box){
 	// Generate descendents tree
 	var descendents_tree = generate_descendents_tree(family_data, ancestor_key);
 
@@ -66,7 +75,24 @@ function render_family_tree(ancestor_key, SVG_box){
 	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
 	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
-	SVG_descendents_tree(descendents_tree, SVG_element);
+	SVG_tree(descendents_tree, SVG_element, true);
+	
+	// Place on the canvas
+	SVG_box.innerHTML = '';
+	SVG_box.appendChild(SVG_element);
+}
+
+
+function render_ancestor_tree(descendant_key, SVG_box){
+	// Generate descendents tree
+	var ancestors_tree = generate_ancestor_tree(family_data, descendant_key);
+
+	// Create the actual SVG element
+	var SVG_element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
+	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
+	SVG_element.setAttribute('border', '1px solid black');
+	SVG_tree(ancestors_tree, SVG_element, false);
 	
 	// Place on the canvas
 	SVG_box.innerHTML = '';
@@ -89,7 +115,7 @@ function GEDCOM2SVG(GEDCOM_string){
 	SVG_element.setAttribute('xmlns', "http://www.w3.org/2000/svg");
 	SVG_element.setAttribute('xmlns:xlink', "http://www.w3.org/1999/xlink");
 	SVG_element.setAttribute('border', '1px solid black');
-	SVG_descendents_tree(descendents_tree, SVG_element);
+	SVG_tree(descendents_tree, SVG_element, true);
 	
 	return SVG_element;
 }
@@ -207,9 +233,9 @@ function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
 			var curr_fam = FAM_dict[curr_JSON['spouse_fam'][0]];
 			if ('mother' in curr_fam && curr_fam['mother'] != curr['key']) curr['spouse_key'] = curr_fam['mother'];
 			if ('father' in curr_fam && curr_fam['father'] != curr['key']) curr['spouse_key'] = curr_fam['father'];
-			if ('spouse_key' in curr) var spouse_JSON = INDI_dict[curr['spouse_key']];
+			if ('spouse_key' in curr && INDI_dict[curr['spouse_key']]) var spouse_JSON = INDI_dict[curr['spouse_key']];
 			else var spouse_JSON = {'name':'?', 'birthdate':'?'};
-			
+			console.log(curr['name']);
 			curr['spouse'] = spouse_JSON['name'];
 			curr['spouse_birthdate'] = spouse_JSON['birthdate'];
 			
@@ -236,6 +262,44 @@ function generate_descendents_tree(cleaned_GEDCOM_json, ancestor_key){
 }
 
 
+function generate_ancestor_tree(cleaned_GEDCOM_json, descendant_key){
+	var INDI_dict = cleaned_GEDCOM_json.INDI_dict;
+	var FAM_dict = cleaned_GEDCOM_json.FAM_dict;
+	
+	// Generate descendents tree
+	var ancestors_tree = {'key': descendant_key, 'generation': 1}
+	var search_stack = [ancestors_tree]; //INDI_dict.keys().filter(indi => !('child_fam' in INDI_dict[indi]));
+	while (search_stack.length){
+		var curr = search_stack.pop();
+		var curr_JSON = INDI_dict[curr['key']]
+		curr['name'] = curr_JSON['name'];
+		curr['birthdate'] = curr_JSON['birthdate'];
+		if ('child_fam' in curr_JSON){
+			curr['children'] = [];
+			var curr_fam = FAM_dict[curr_JSON['child_fam']];
+			for(var parent of ['mother', 'father'])
+				if (parent in curr_fam && INDI_dict[curr_fam[parent]]) {
+					var new_child = {'key': curr_fam[parent], 'generation': curr['generation']+1};
+					curr['children'].push(new_child);
+					search_stack.push(new_child);
+			}
+		}
+	}
+	// Sort children by birthday
+	const by_birthday = (a,b) => new Date(a['birthdate']) > new Date(b['birthdate'])? 1 : -1;
+	var search_stack = [ancestors_tree];
+	while (search_stack.length){
+		var curr = search_stack.pop();
+		if ('children' in curr){
+			curr['children'] = curr['children'].sort(by_birthday);
+			search_stack.push(...curr['children']);
+		}
+	}
+	
+	return ancestors_tree;
+}
+
+
 function descendents_tree_widths(descendents_tree){
 	if ('width' in descendents_tree) return descendents_tree['width'];
 	var self_width = ('spouse' in descendents_tree) ? 2 : 1;
@@ -250,7 +314,7 @@ function descendents_tree_widths(descendents_tree){
 	return width;
 }
 
-function SVG_descendents_tree(descendents_tree, svg_element){
+function SVG_tree(descendents_tree, svg_element, down){
 	// Fetch max generation and generation list, fix children ordering
 	var generation_list = [];
 	var stack = [];
@@ -277,11 +341,11 @@ function SVG_descendents_tree(descendents_tree, svg_element){
 	
 	// Second pass to prevent negative values
 	var min_position = Math.min(0,...left_contour(descendents_tree,0));
-	console.log(min_position);
+	//console.log(min_position);
 	
 	// Third pass offsets
 	third_pass_RT_algorithms(descendents_tree, -min_position);
-	console.log(descendents_tree);
+	//console.log(descendents_tree);
 	var max_width = Math.max.apply(null,generation_list.map(row => Math.max.apply(null,row.map(indiv => indiv['offset']))));
 	
 	// Draw results
@@ -375,8 +439,8 @@ function first_pass_RT_algorithms(curr){
 		// Generate contours
 		var curr_left_contour = left_contour(curr, 0);
 		var sib_right_contour = right_contour(sib, 0);
-		console.log(curr['name']);
-		console.log(sib['name']);
+		//console.log(curr['name']);
+		//console.log(sib['name']);
 		//console.log(curr_left_contour);
 		//console.log(sib_right_contour);
 		
@@ -385,7 +449,7 @@ function first_pass_RT_algorithms(curr){
 			max_conflict = Math.max(max_conflict, sib_right_contour[i]-curr_left_contour[i]);
 		var shift = Math.max(0,max_conflict+1);
 		//console.log(shift);
-		console.log(sib_dist);
+		//console.log(sib_dist);
 		curr['offset'] += shift;
 		curr['mod'] += shift;
 		//console.log(curr['offset']);
@@ -396,8 +460,8 @@ function first_pass_RT_algorithms(curr){
 			var inner_sib_count = 1;
 			var realignment = (curr['offset'] - sib['offset'])/sib_dist;
 			while(shift_sib != curr){
-				console.log(realignment);
-				console.log('shiftsib');
+				//console.log(realignment);
+				//console.log('shiftsib');
 				//console.log(shift_sib['name']);
 				var alignment = inner_sib_count*realignment + sib['offset'];
 				shift_sib['mod'] += alignment - curr['offset'];
@@ -456,22 +520,32 @@ function third_pass_RT_algorithms(curr, modSum){
 var individual_box = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 individual_box.setAttribute('rx', 5);
 individual_box.setAttribute('ry', 5);
-individual_box.setAttribute('width', 2*scale_px);
+individual_box.setAttribute('width', 3*scale_px);
 individual_box.setAttribute('height', scale_px);
 individual_box.setAttribute('stroke', 'black');
 individual_box.setAttribute('fill', 'none');
 var individual_text = document.createElementNS("http://www.w3.org/2000/svg", "text");
 
 function add_individual_SVG(svg_element, name, x, y){
+	name = name.split("/");
 	var new_individual = individual_box.cloneNode(true);
-	new_individual.setAttribute('x', x);
+	new_individual.setAttribute('x', x-scale_px/2);
 	new_individual.setAttribute('y', y);
 	svg_element.appendChild(new_individual);
+	// First name
 	var new_individual = individual_text.cloneNode(true);
 	new_individual.setAttribute('dominant-baseline', 'middle');
 	new_individual.setAttribute('text-anchor', 'middle');
 	new_individual.setAttribute('x', x + scale_px);
-	new_individual.setAttribute('y', y + scale_px/2);
-	new_individual.innerHTML = name;
+	new_individual.setAttribute('y', y + scale_px*1/4);
+	new_individual.innerHTML = name[0];
+	svg_element.appendChild(new_individual);
+	// last name
+	new_individual = individual_text.cloneNode(true);
+	new_individual.setAttribute('dominant-baseline', 'middle');
+	new_individual.setAttribute('text-anchor', 'middle');
+	new_individual.setAttribute('x', x + scale_px);
+	new_individual.setAttribute('y', y + scale_px*3/4);
+	new_individual.innerHTML = name[1];
 	svg_element.appendChild(new_individual);
 }

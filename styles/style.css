@@ -1,6 +1,7 @@
 table, th, td {
 	border:1px solid black;
 	border-collapse: collapse;
+	table-layout: fixed;
 }
 
 tbody{
@@ -22,6 +23,8 @@ th, td {
 	padding: 5px;
 	text-align: left;
 	width: 200px;
+	word-wrap: break-word;
+	word-break: break-all;
 }
 
 #file-image {
