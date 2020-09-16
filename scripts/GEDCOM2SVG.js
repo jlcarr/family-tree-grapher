@@ -359,6 +359,7 @@ function SVG_tree(descendents_tree, svg_element, down){
 		
 		var location = curr['offset'];
 		var generation =  curr['generation'];
+		if (!down) generation = max_generation + 1 - generation;
 		
 		add_individual_SVG(svg_element, curr['name'], (2*location+1)*2*scale_px, (2*generation-1)*scale_px);
 		/*if ('spouse' in curr){
@@ -376,9 +377,9 @@ function SVG_tree(descendents_tree, svg_element, down){
 			// Drop line
 			var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 			children_line.setAttribute('x1', (2*location+3/2)*2*scale_px);
-			children_line.setAttribute('y1', (2*generation-0/2)*scale_px);
+			children_line.setAttribute('y1', (2*generation-0/2 - 3/2*(!down|0))*scale_px);
 			children_line.setAttribute('x2', (2*location+3/2)*2*scale_px);
-			children_line.setAttribute('y2', (2*generation+1/2)*scale_px);
+			children_line.setAttribute('y2', (2*generation+1/2 - 3/2*(!down|0))*scale_px);
 			children_line.setAttribute('stroke', 'black');
 			svg_element.appendChild(children_line);
 			
@@ -392,19 +393,19 @@ function SVG_tree(descendents_tree, svg_element, down){
 			// Sibling line
 			var sibling_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 			sibling_line.setAttribute('x1', (2*min_child_offset+3/2)*2*scale_px);
-			sibling_line.setAttribute('y1', (2*generation+1/2)*scale_px);
+			sibling_line.setAttribute('y1', (2*generation+1/2 - 2*(!down|0))*scale_px);
 			sibling_line.setAttribute('x2', (2*max_child_offset+3/2)*2*scale_px);
-			sibling_line.setAttribute('y2', (2*generation+1/2)*scale_px);
+			sibling_line.setAttribute('y2', (2*generation+1/2 - 2*(!down|0))*scale_px);
 			sibling_line.setAttribute('stroke', 'black');
 			svg_element.appendChild(sibling_line);
 		}
 		
-		if (generation != 1) {
+		if ( (down && generation != 1) || (!down && generation != max_generation)) {
 			var children_line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 			children_line.setAttribute('x1', (2*location+3/2)*2*scale_px);
-			children_line.setAttribute('y1', (2*generation-1)*scale_px);
+			children_line.setAttribute('y1', (2*generation-1 + 3/2*(!down|0))*scale_px);
 			children_line.setAttribute('x2', (2*location+3/2)*2*scale_px);
-			children_line.setAttribute('y2', (2*generation-3/2)*scale_px);
+			children_line.setAttribute('y2', (2*generation-3/2 + 3/2*(!down|0))*scale_px);
 			children_line.setAttribute('stroke', 'black');
 			svg_element.appendChild(children_line);
 		}
